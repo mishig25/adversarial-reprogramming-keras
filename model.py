@@ -12,18 +12,37 @@ from keras.utils import to_categorical
 from keras.optimizers import Adam
 
 class AdvReprogramLayer(Layer):    
+    """ A custom Keras layer for Adversarial Reprogramming.
+
+    This model creates weights that have same shape as 
+    an input image to imagenet models.
+    As the model trains, these weights should be optimized 
+    to 'trick' the model into desired intention.
+    """
     
     def __init__(self, **kwargs):
         super(AdvReprogramLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.adv_weights = self.add_weight(name='kernel', 
-                                      shape=(1,299,299,3),
-                                      initializer='uniform',
-                                      trainable=True)
+        """Builds and initializes weights of the layer.
+
+        Args: 
+            input_shape: A tuple indicating shape of the input to the layer.
+        """
+        img_shape = (1,299,299,3)
+        self.adv_weights = self.add_weight(name = 'kernel', 
+                                      shape = img_shape,
+                                      initializer = 'uniform',
+                                      trainable = True)
         super(AdvReprogramLayer, self).build(input_shape) 
 
     def call(self, x):
+        """Combines MNIST image with the layer's weights
+        to create an input for an imagenet model.
+
+        Args: 
+            x: A tensor input to the layer.
+        """
         input_mask = np.pad(np.zeros([1, 28, 28, 3]),
                             [[0,0], [136, 135], [136, 135], [0,0]],
                             'constant', constant_values = 1)
@@ -36,15 +55,33 @@ class AdvReprogramLayer(Layer):
         return adv_image
 
     def compute_output_shape(self, input_shape):
+        """Returns output shape of the layer.
+
+        Args: 
+            input_shape: A tuple indicating shape of the input to the layer.
+        """
         return self.out_shape
 
-class AdvReprogramModel():
+class AdvReprogramModel(object):
+    """ A model that demonstrates Adversarial Reprogramming.
+
+    This model used Keras Functional API and 
+    `AdvReprogramLayer` (custom keras layer)  
+    to adversarially reporgram imagenet model 
+    into one that can classify MNIST digits.
+    """
 
     def __init__(self):
         self.optimizer = Adam(lr=0.05, decay=0.96)
         self.model = self.build_model(summary = True)
     
     def build_model(self, summary = False):
+        """ Builds Keras model for Adversarial Reprogramming.
+
+        Args:
+            summary: A boolean indicating whether to show model summary after its built.
+        """
+
         mnist_shape = (28,28,1)
         inputs = Input(shape=mnist_shape)
         adv = AdvReprogramLayer()(inputs)
@@ -59,6 +96,12 @@ class AdvReprogramModel():
         return model
     
     def train(self, epochs=100, batch_size=50):
+        """Trains the model.
+
+        Args:
+            epochs: An integer number of epochs.
+            batch_size: An integer indicating size of the batches.
+        """
         (x_train, y_train), (x_test, y_test) = self.get_mnist()
         self.model.fit(x_train,y_train,
                         epochs=epochs,
@@ -66,6 +109,11 @@ class AdvReprogramModel():
                         validation_data=(x_test, y_test))
     
     def get_mnist(self):
+        """Gets, processes, and return MNIST dataset.
+
+        Returns:
+            A tuple of tuples that contain training and test data.
+        """
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
         x_train = (x_train - 0.5)*2.0
         x_test = (x_test - 0.5)*2.0
